@@ -1,0 +1,7 @@
+{ 
+    "chinese_voice": "zh-CN-XiaoxiaoNeural",
+    "english_voice": "en-US-AriaNeural",
+    "speech_rate": "+0%",
+    "volume": "+0%",
+    "cache_enabled": True
+}
