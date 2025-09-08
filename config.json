@@ -3,5 +3,5 @@
     "english_voice": "en-US-AriaNeural",
     "speech_rate": "+0%",
     "volume": "+0%",
-    "cache_enabled": True
+    "cache_enabled": true
 }

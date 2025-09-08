@@ -1,9 +1,11 @@
 {
+  "package": "edge_tts_for_anki",
   "name": "Edge TTS",
   "mod": 1683456000,
   "author": "关公",
   "version": "1.0.0",
-  "anki_version": ">=2.1.50",
+  "min_point_version": 50,
+  "max_point_version": 99,
   "description": "为 Anki 编辑器添加微软 Edge TTS 语音功能",
   "license": "MIT",
   "support_url": "https://github.com/guanlisheng/edge-tts-for-anki"
