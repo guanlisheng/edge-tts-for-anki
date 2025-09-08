@@ -1,0 +1,12 @@
+{
+  "requirements": [
+    "edge-tts>=6.1.12"
+  ],
+  "min_anki_version": "23.12",
+  "max_anki_version": "25.99",
+  "addon_version": "1.0.0",
+  "name": "Edge TTS Button",
+  "author": "Your Name",
+  "description": "在编辑器中添加一个按钮，使用 Microsoft Edge TTS 生成语音，并插入到字段中。",
+  "homepage": "https://github.com/guanlisheng/edge-tts-for-anki"
+}
