@@ -8,5 +8,6 @@
   "max_point_version": 99,
   "description": "为 Anki 编辑器添加微软 Edge TTS 语音功能",
   "license": "MIT",
-  "support_url": "https://github.com/guanlisheng/edge-tts-for-anki"
+  "support_url": "https://github.com/guanlisheng/edge-tts-for-anki",
+  "homepage": "https://guanlisheng.com/"
 }

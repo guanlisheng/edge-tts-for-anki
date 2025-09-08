@@ -1,4 +1,11 @@
-import os
+
+import os, sys, json, subprocess
+
+ADDON_ROOT = os.path.dirname(__file__)
+VENDOR = os.path.join(ADDON_ROOT, "vendor")
+if VENDOR not in sys.path:
+    sys.path.insert(0, VENDOR)
+
 import re
 import html
 import asyncio
@@ -10,13 +17,30 @@ from aqt.editor import Editor
 from anki.hooks import addHook
 
 # 插件配置
-CONFIG = {
+DEFAULT_CONFIG = {
     "chinese_voice": "zh-CN-XiaoxiaoNeural",
     "english_voice": "en-US-AriaNeural",
     "speech_rate": "+0%",
     "volume": "+0%",
     "cache_enabled": True
 }
+
+def load_config():
+    """尝试读取 config.json，如果失败则返回默认配置"""
+    config_path = os.path.join(ADDON_ROOT, "config.json")
+    try:
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            # 合并默认配置，避免缺少字段
+            merged = DEFAULT_CONFIG.copy()
+            merged.update(cfg)
+            return merged
+    except Exception as e:
+        showInfo(f"加载 config.json 出错，使用默认配置: {e}")
+    return DEFAULT_CONFIG.copy()
+
+CONFIG = load_config()
 
 # 语音缓存
 _tts_cache = {}
@@ -124,9 +148,60 @@ def on_tts_clicked(editor):
     else:
         tooltip("语音生成失败")
 
+# ------------------ 菜单功能 ------------------
+def open_config_file():
+    """打开 config.json"""
+    path = os.path.join(ADDON_ROOT, "config.json")
+    if not os.path.exists(path):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(DEFAULT_CONFIG, f, indent=4, ensure_ascii=False)
+    try:
+        if sys.platform.startswith("darwin"):
+            subprocess.call(("open", path))
+        elif os.name == "nt":
+            os.startfile(path)
+        else:
+            subprocess.call(("xdg-open", path))
+    except Exception as e:
+        showInfo(f"无法打开配置文件: {e}")
+
+def reload_config():
+    """重新加载配置"""
+    load_config()
+    showInfo("Edge TTS 配置已重新加载 ✅")
+
+def about_plugin():
+    """显示插件说明"""
+    msg = (
+        "🔊 Edge TTS for Anki\n\n"
+        "为 Anki 编辑器添加微软 Edge TTS 语音合成功能。\n"
+        "支持中文和英文自动切换。\n\n"
+        "依赖库: edge-tts\n"
+        "配置文件: config.json"
+    )
+    showInfo(msg)
+
+# ------------------ 初始化 ------------------
 def add_editor_buttons():
     """添加编辑器按钮"""
     addHook("setupEditorButtons", add_tts_button)
 
+def setup_menu():
+    menu = QMenu("Edge TTS", mw)
+    mw.form.menuTools.addMenu(menu)
+
+    action_open = QAction("打开配置文件", mw)
+    action_open.triggered.connect(open_config_file)
+    menu.addAction(action_open)
+
+    action_reload = QAction("重载配置", mw)
+    action_reload.triggered.connect(reload_config)
+    menu.addAction(action_reload)
+
+    action_about = QAction("关于插件", mw)
+    action_about.triggered.connect(about_plugin)
+    menu.addAction(action_about)
+
 # 初始化插件
 add_editor_buttons()
+setup_menu()
