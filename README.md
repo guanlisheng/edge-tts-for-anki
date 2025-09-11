@@ -1,7 +1,7 @@
 # Edge TTS Plugin for Anki
 
 ## 插件代码 / AnkiWeb ID
-`2034321258` 用户可以在 Anki 中 **工具 → 插件 → 获取插件** 输入该 ID 直接安装。
+[`2034321258`](https://ankiweb.net/shared/info/2034321258) 用户可以在 Anki 中 **工具 → 插件 → 获取插件** 输入该 ID 直接安装。
 
 ## 功能 / Features
 
