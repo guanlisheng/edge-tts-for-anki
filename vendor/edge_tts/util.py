@@ -72,11 +72,8 @@ async def _run_tts(args: UtilArgs) -> None:
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 audio_file.write(chunk["data"])
-            elif chunk["type"] == "WordBoundary":
+            elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
                 submaker.feed(chunk)
-
-        if args.words_in_cue > 0:
-            submaker.merge_cues(args.words_in_cue)
 
         if sub_file is not None:
             sub_file.write(submaker.get_srt())
@@ -111,12 +108,6 @@ async def amain() -> None:
     parser.add_argument("--volume", help="set TTS volume. Default +0%%.", default="+0%")
     parser.add_argument("--pitch", help="set TTS pitch. Default +0Hz.", default="+0Hz")
     parser.add_argument(
-        "--words-in-cue",
-        help="number of words in a subtitle cue. Default: 10.",
-        default=10,
-        type=int,
-    )
-    parser.add_argument(
         "--write-media", help="send media output to file instead of stdout"
     )
     parser.add_argument(
@@ -134,7 +125,7 @@ async def amain() -> None:
         if args.file in ("-", "/dev/stdin"):
             args.text = sys.stdin.read()
         else:
-            with open(args.file, "r", encoding="utf-8") as file:
+            with open(args.file, encoding="utf-8") as file:
                 args.text = file.read()
 
     if args.text is not None:
