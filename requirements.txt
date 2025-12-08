@@ -1,0 +1,2 @@
+edge-tts>=7.2.3
+langdetect>=1.0.9

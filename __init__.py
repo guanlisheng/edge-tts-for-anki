@@ -1,4 +1,4 @@
-
+# file __init__.py
 import os, sys, json, subprocess
 
 ADDON_ROOT = os.path.dirname(__file__)
@@ -10,6 +10,9 @@ import re
 import html
 import asyncio
 import edge_tts
+import langdetect
+from langdetect.lang_detect_exception import LangDetectException
+
 from aqt import mw
 from aqt.qt import *
 from aqt.utils import showInfo, tooltip
@@ -18,27 +21,69 @@ from anki.hooks import addHook
 
 # 插件配置
 DEFAULT_CONFIG = {
-    "chinese_voice": "zh-CN-XiaoxiaoNeural",
-    "english_voice": "en-US-AriaNeural",
+    # 新版：语音映射表（语言代码 -> Edge TTS 语音名称）
+    "voice_mapping": {
+        "zh": "zh-CN-XiaoxiaoNeural",    # 中文
+        "en": "en-US-AriaNeural",        # 英文
+        "fr": "fr-FR-DeniseNeural",      # 法语
+        "de": "de-DE-ConradNeural",      # 德语
+        "ja": "ja-JP-NanamiNeural",      # 日语
+        "ko": "ko-KR-SunHiNeural",       # 韩语
+        "es": "es-ES-ElviraNeural",      # 西班牙语
+        "ru": "ru-RU-DariyaNeural",      # 俄语
+        "ar": "ar-EG-SalmaNeural",       # 阿拉伯语
+        "hi": "hi-IN-SwaraNeural",       # 印地语
+        "it": "it-IT-ElsaNeural",        # 意大利语
+        "pt": "pt-BR-FranciscaNeural",   # 葡萄牙语
+    },
+    # 当检测失败或未映射时的默认语音
+    "default_voice": "en-US-AriaNeural",
+    # 兼容旧版配置的字段（用于自动迁移）
+    "chinese_voice": None,
+    "english_voice": None,
+    # 其他参数保持不变
     "speech_rate": "+0%",
     "volume": "+0%",
     "cache_enabled": True
 }
 
 def load_config():
-    """尝试读取 config.json，如果失败则返回默认配置"""
+    """加载并迁移配置"""
     config_path = os.path.join(ADDON_ROOT, "config.json")
     try:
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            # 合并默认配置，避免缺少字段
-            merged = DEFAULT_CONFIG.copy()
-            merged.update(cfg)
+                user_cfg = json.load(f)
+            
+            # 从 DEFAULT_CONFIG 深拷贝开始
+            merged = json.loads(json.dumps(DEFAULT_CONFIG))
+            merged.update(user_cfg)
+            
+            # 自动迁移旧版配置
+            if merged["chinese_voice"] or merged["english_voice"]:
+                if merged["chinese_voice"]:
+                    merged["voice_mapping"]["zh"] = merged["chinese_voice"]
+                if merged["english_voice"]:
+                    merged["voice_mapping"]["en"] = merged["english_voice"]
+                # 标记已迁移
+                merged["chinese_voice"] = None
+                merged["english_voice"] = None
+                
+                # 保存迁移后的配置
+                try:
+                    with open(config_path, "w", encoding="utf-8") as f:
+                        json.dump({k: v for k, v in merged.items() 
+                                 if k not in ["chinese_voice", "english_voice"]}, 
+                                f, indent=4, ensure_ascii=False)
+                    print("配置已自动迁移至新版格式")
+                except:
+                    pass
+            
             return merged
     except Exception as e:
-        showInfo(f"加载 config.json 出错，使用默认配置: {e}")
-    return DEFAULT_CONFIG.copy()
+        print(f"配置加载失败，使用默认值: {e}")
+    
+    return DEFAULT_CONFIG.copy
 
 CONFIG = load_config()
 
@@ -49,9 +94,55 @@ def get_config():
     return CONFIG
 
 # ------------------ TTS 核心功能 ------------------
-def contains_chinese(text):
-    """检查文本是否包含中文字符"""
-    return bool(re.search(r'[\u4e00-\u9fff]', text))
+
+def detect_language(text):
+    """
+    检测文本的主要语言，返回语言代码（如 'zh', 'en', 'fr'）
+    实现优雅降级：langdetect -> 语系检测 -> 字符检测 -> 默认
+    """
+    # 清理文本：去除HTML标签和数字/符号，保留纯文本进行检测
+    clean_text = re.sub(r'<[^>]+>', '', text)
+    clean_text = re.sub(r'[0-9\W_]+', ' ', clean_text).strip()
+
+    if not clean_text or len(clean_text) < 2:
+        return "en"  # 文本过短，返回默认
+
+    # 第1级：使用 langdetect 进行多语言检测
+    try:
+        # 设置种子确保确定性结果
+        langdetect.DetectorFactory.seed = 0
+        lang_code = langdetect.detect(clean_text)
+        return lang_code[:2]  # 只取前两位（如 'zh'、'en'）
+    except (LangDetectException, Exception):
+        pass
+
+    # 第2级：语系特征检测（当 langdetect 不可用时）
+    # 中日韩统一表意文字
+    if re.search(r'[\u4e00-\u9fff\u3400-\u4dbf\U00020000-\U0002a6df]', text):
+        return "zh"
+    # 日文假名
+    elif re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
+        return "ja"
+    # 韩文字母
+    elif re.search(r'[\uAC00-\uD7A3]', text):
+        return "ko"
+    # 西里尔字母（俄语等）
+    elif re.search(r'[\u0400-\u04FF]', text):
+        return "ru"
+    # 阿拉伯字母
+    elif re.search(r'[\u0600-\u06FF]', text):
+        return "ar"
+    # 天城文（印地语等）
+    elif re.search(r'[\u0900-\u097F]', text):
+        return "hi"
+
+    # 第3级：基础拉丁字母检测
+    # 如果包含拉丁字母，优先认为是英文
+    if re.search(r'[a-zA-Z]', text):
+        return "en"
+
+    # 第4级：完全无法识别，返回配置的默认语言
+    return "en"
 
 async def generate_speech_async(text, voice, rate, volume, output_filename):
     """异步生成语音文件"""
@@ -66,12 +157,14 @@ async def generate_speech_async(text, voice, rate, volume, output_filename):
 def generate_speech(text):
     """生成语音并返回音频文件名"""
     config = get_config()
-    
-    # 自动检测语言
-    if contains_chinese(text):
-        voice = config["chinese_voice"]
-    else:
-        voice = config["english_voice"]
+
+
+    # 检测语言
+    lang_code = detect_language(text)
+
+    # 从映射表获取语音，若未配置则使用默认
+    voice_mapping = config.get("voice_mapping", {})
+    voice = voice_mapping.get(lang_code, config.get("default_voice", "en-US-AriaNeural"))
     
     # 检查缓存
     cache_key = f"{text}_{voice}_{config['speech_rate']}_{config['volume']}"
@@ -84,7 +177,7 @@ def generate_speech(text):
         os.makedirs(media_dir)
     
     # 生成唯一的输出文件名
-    output_filename = os.path.join(media_dir, f"tts_{hash(cache_key)}.mp3")
+    output_filename = os.path.join(media_dir, f"tts_{lang_code}_{hash(cache_key)}.mp3")
     
     # 异步任务同步执行
     loop = asyncio.new_event_loop()

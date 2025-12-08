@@ -1,6 +1,17 @@
-{ 
-    "chinese_voice": "zh-CN-XiaoxiaoNeural",
-    "english_voice": "en-US-AriaNeural",
+{
+    "voice_mapping": {
+        "zh": "zh-CN-XiaoxiaoNeural",
+        "en": "en-US-AriaNeural",
+        "fr": "fr-FR-DeniseNeural",
+        "de": "de-DE-ConradNeural",
+        "ja": "ja-JP-NanamiNeural",
+        "ko": "ko-KR-SunHiNeural",
+        "es": "es-ES-ElviraNeural",
+        "ru": "ru-RU-DariyaNeural",
+        "ar": "ar-EG-SalmaNeural",
+        "hi": "hi-IN-SwaraNeural"
+    },
+    "default_voice": "en-US-AriaNeural",
     "speech_rate": "+0%",
     "volume": "+0%",
     "cache_enabled": true

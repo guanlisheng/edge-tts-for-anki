@@ -4,7 +4,7 @@
   ],
   "min_anki_version": "23.12",
   "max_anki_version": "25.99",
-  "addon_version": "1.0.0",
+  "addon_version": "1.1.0",
   "name": "Edge TTS Button",
   "author": "关公",
   "description": "在编辑器中添加一个按钮，使用 Microsoft Edge TTS 生成语音，并插入到字段中。",
