@@ -3,7 +3,7 @@
   "name": "Edge TTS",
   "mod": 1683456000,
   "author": "关公",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "min_point_version": 50,
   "max_point_version": 99,
   "description": "为 Anki 编辑器添加微软 Edge TTS 语音功能",
