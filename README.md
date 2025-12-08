@@ -16,7 +16,7 @@
 
 - [`edge-tts`](https://pypi.org/project/edge-tts/)：用于生成文本到语音（TTS）  
 - [`langdetect`](https://pypi.org/project/langdetect/)：用于检测文本到语音
-  👉 已内置在插件中，无需手动安装
+- 👆 已内置在插件中，无需手动安装
 
 ## 安装方法 / Installation
 
