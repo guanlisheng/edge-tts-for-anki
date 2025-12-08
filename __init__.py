@@ -102,7 +102,6 @@ def detect_language(text):
     """
     # 清理文本：去除HTML标签和数字/符号，保留纯文本进行检测
     clean_text = re.sub(r'<[^>]+>', '', text)
-    clean_text = re.sub(r'[0-9\W_]+', ' ', clean_text).strip()
 
     if not clean_text or len(clean_text) < 2:
         return "en"  # 文本过短，返回默认
