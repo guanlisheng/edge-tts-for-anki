@@ -67,7 +67,7 @@
 如果需要调试插件，可以在本地克隆代码，并在 `vendor/` 目录中手动安装依赖：
 
 ```bash
-pip install --target=vendor edge-tts
+pip install --target=vendor -r requirements.txt
 ```
 
 然后重新打包成 .ankiaddon 即可。
