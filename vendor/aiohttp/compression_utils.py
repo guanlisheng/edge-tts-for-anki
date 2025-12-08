@@ -21,6 +21,17 @@ try:
 except ImportError:  # pragma: no cover
     HAS_BROTLI = False
 
+try:
+    if sys.version_info >= (3, 14):
+        from compression.zstd import ZstdDecompressor  # noqa: I900
+    else:  # TODO(PY314): Remove mentions of backports.zstd across codebase
+        from backports.zstd import ZstdDecompressor
+
+    HAS_ZSTD = True
+except ImportError:
+    HAS_ZSTD = False
+
+
 MAX_SYNC_CHUNK_SIZE = 1024
 
 
@@ -174,7 +185,6 @@ class ZLibCompressor(ZlibBaseHandler):
         if level is not None:
             kwargs["level"] = level
         self._compressor = self._zlib_backend.compressobj(**kwargs)
-        self._compress_lock = asyncio.Lock()
 
     def compress_sync(self, data: bytes) -> bytes:
         return self._compressor.compress(data)
@@ -187,22 +197,37 @@ class ZLibCompressor(ZlibBaseHandler):
         If the data size is large than the max_sync_chunk_size, the compression
         will be done in the executor. Otherwise, the compression will be done
         in the event loop.
+
+        **WARNING: This method is NOT cancellation-safe when used with flush().**
+        If this operation is cancelled, the compressor state may be corrupted.
+        The connection MUST be closed after cancellation to avoid data corruption
+        in subsequent compress operations.
+
+        For cancellation-safe compression (e.g., WebSocket), the caller MUST wrap
+        compress() + flush() + send operations in a shield and lock to ensure atomicity.
         """
-        async with self._compress_lock:
-            # To ensure the stream is consistent in the event
-            # there are multiple writers, we need to lock
-            # the compressor so that only one writer can
-            # compress at a time.
-            if (
-                self._max_sync_chunk_size is not None
-                and len(data) > self._max_sync_chunk_size
-            ):
-                return await asyncio.get_running_loop().run_in_executor(
-                    self._executor, self._compressor.compress, data
-                )
-            return self.compress_sync(data)
+        # For large payloads, offload compression to executor to avoid blocking event loop
+        should_use_executor = (
+            self._max_sync_chunk_size is not None
+            and len(data) > self._max_sync_chunk_size
+        )
+        if should_use_executor:
+            return await asyncio.get_running_loop().run_in_executor(
+                self._executor, self._compressor.compress, data
+            )
+        return self.compress_sync(data)
 
     def flush(self, mode: Optional[int] = None) -> bytes:
+        """Flush the compressor synchronously.
+
+        **WARNING: This method is NOT cancellation-safe when called after compress().**
+        The flush() operation accesses shared compressor state. If compress() was
+        cancelled, calling flush() may result in corrupted data. The connection MUST
+        be closed after compress() cancellation.
+
+        For cancellation-safe compression (e.g., WebSocket), the caller MUST wrap
+        compress() + flush() + send operations in a shield and lock to ensure atomicity.
+        """
         return self._compressor.flush(
             mode if mode is not None else self._zlib_backend.Z_FINISH
         )
@@ -275,4 +300,20 @@ class BrotliDecompressor:
     def flush(self) -> bytes:
         if hasattr(self._obj, "flush"):
             return cast(bytes, self._obj.flush())
+        return b""
+
+
+class ZSTDDecompressor:
+    def __init__(self) -> None:
+        if not HAS_ZSTD:
+            raise RuntimeError(
+                "The zstd decompression is not available. "
+                "Please install `backports.zstd` module"
+            )
+        self._obj = ZstdDecompressor()
+
+    def decompress_sync(self, data: bytes) -> bytes:
+        return self._obj.decompress(data)
+
+    def flush(self) -> bytes:
         return b""

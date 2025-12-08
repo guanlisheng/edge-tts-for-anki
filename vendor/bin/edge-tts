@@ -1,8 +1,7 @@
-#!/usr/local/opt/python@3.9/bin/python3.9
-# -*- coding: utf-8 -*-
-import re
+#!/Users/guanlisheng/workspace/ai/python_venv/bin/python3
 import sys
 from edge_tts.__main__ import main
 if __name__ == '__main__':
-    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    if sys.argv[0].endswith('.exe'):
+        sys.argv[0] = sys.argv[0][:-4]
     sys.exit(main())

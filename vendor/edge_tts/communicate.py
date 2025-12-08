@@ -20,11 +20,10 @@ from typing import (
     Tuple,
     Union,
 )
-from xml.sax.saxutils import escape, unescape
+from xml.sax.saxutils import escape
 
 import aiohttp
 import certifi
-from typing_extensions import Literal
 
 from .constants import DEFAULT_VOICE, SEC_MS_GEC_VERSION, WSS_HEADERS, WSS_URL
 from .data_classes import TTSConfig
@@ -100,114 +99,20 @@ def connect_id() -> str:
     return str(uuid.uuid4()).replace("-", "")
 
 
-def _find_last_newline_or_space_within_limit(text: bytes, limit: int) -> int:
-    """
-    Finds the index of the rightmost preferred split character (newline or space)
-    within the initial `limit` bytes of the text.
-
-    This helps find a natural word or sentence boundary for splitting, prioritizing
-    newlines over spaces.
-
-    Args:
-        text (bytes): The byte string to search within.
-        limit (int): The maximum index (exclusive) to search up to.
-
-    Returns:
-        int: The index of the last found newline or space within the limit,
-             or -1 if neither is found in that range.
-    """
-    # Prioritize finding a newline character
-    split_at = text.rfind(b"\n", 0, limit)
-    # If no newline is found, search for a space
-    if split_at < 0:
-        split_at = text.rfind(b" ", 0, limit)
-    return split_at
-
-
-def _find_safe_utf8_split_point(text_segment: bytes) -> int:
-    """
-    Finds the rightmost possible byte index such that the
-    segment `text_segment[:index]` is a valid UTF-8 sequence.
-
-    This prevents splitting in the middle of a multi-byte UTF-8 character.
-
-    Args:
-        text_segment (bytes): The byte segment being considered for splitting.
-
-    Returns:
-        int: The index of the safe split point. Returns 0 if no valid split
-             point is found (e.g., if the first byte is part of a multi-byte
-             sequence longer than the limit allows).
-    """
-    split_at = len(text_segment)
-    while split_at > 0:
-        try:
-            text_segment[:split_at].decode("utf-8")
-            # Found the largest valid UTF-8 sequence
-            return split_at
-        except UnicodeDecodeError:
-            # The byte at split_at-1 is part of an incomplete multi-byte char, try earlier
-            split_at -= 1
-
-    return split_at
-
-
-def _adjust_split_point_for_xml_entity(text: bytes, split_at: int) -> int:
-    """
-    Adjusts a proposed split point backward to prevent splitting inside an XML entity.
-
-    For example, if `text` is `b"this &amp; that"` and `split_at` falls between
-    `&` and `;`, this function moves `split_at` to the index before `&`.
-
-    Args:
-        text (bytes): The text segment being considered.
-        split_at (int): The proposed split point index, determined by whitespace
-                        or UTF-8 safety.
-
-    Returns:
-        int: The adjusted split point index. It will be moved to the '&'
-             if an unterminated entity is detected right before the original `split_at`.
-             Otherwise, the original `split_at` is returned.
-    """
-    while split_at > 0 and b"&" in text[:split_at]:
-        ampersand_index = text.rindex(b"&", 0, split_at)
-        # Check if a semicolon exists between the ampersand and the split point
-        if text.find(b";", ampersand_index, split_at) != -1:
-            # Found a terminated entity (like &amp;), safe to break at original split_at
-            break
-
-        # Ampersand is not terminated before split_at, move split_at to it
-        split_at = ampersand_index
-
-    return split_at
-
-
 def split_text_by_byte_length(
     text: Union[str, bytes], byte_length: int
 ) -> Generator[bytes, None, None]:
     """
-    Splits text into chunks, each not exceeding a maximum byte length.
-
-    This function prioritizes splitting at natural boundaries (newlines, spaces)
-    while ensuring that:
-    1. No chunk exceeds `byte_length` bytes.
-    2. Chunks do not end with an incomplete UTF-8 multi-byte character.
-    3. Chunks do not split XML entities (like `&amp;`) in the middle.
+    Splits a string into a list of strings of a given byte length
+    while attempting to keep words together. This function assumes
+    text will be inside of an XML tag.
 
     Args:
-        text (str or bytes): The input text. If str, it's encoded to UTF-8.
-        byte_length (int): The maximum allowed byte length for any yielded chunk.
-                           Must be positive.
+        text (str or bytes): The string to be split. If bytes, it must be UTF-8 encoded.
+        byte_length (int): The maximum byte length of each string in the list.
 
-    Yields:
-        bytes: Text chunks (UTF-8 encoded, stripped of leading/trailing whitespace)
-               that conform to the byte length and integrity constraints.
-
-    Raises:
-        TypeError: If `text` is not str or bytes.
-        ValueError: If `byte_length` is not positive, or if a split point
-                    cannot be determined (e.g., due to extremely small byte_length
-                    relative to character/entity sizes).
+    Yield:
+        bytes: The next string in the list.
     """
     if isinstance(text, str):
         text = text.encode("utf-8")
@@ -218,37 +123,35 @@ def split_text_by_byte_length(
         raise ValueError("byte_length must be greater than 0")
 
     while len(text) > byte_length:
-        # Find the initial split point based on whitespace or UTF-8 boundary
-        split_at = _find_last_newline_or_space_within_limit(text, byte_length)
+        # Find the last space in the string
+        split_at = text.rfind(b" ", 0, byte_length)
 
-        if split_at < 0:
-            ## No newline or space found, so we need to find a safe UTF-8 split point
-            split_at = _find_safe_utf8_split_point(text)
+        # If no space found, split_at is byte_length
+        split_at = split_at if split_at != -1 else byte_length
 
-        # Adjust the split point to avoid cutting in the middle of an xml entity, such as '&amp;'
-        split_at = _adjust_split_point_for_xml_entity(text, split_at)
+        # Verify all & are terminated with a ;
+        while b"&" in text[:split_at]:
+            ampersand_index = text.rindex(b"&", 0, split_at)
+            if text.find(b";", ampersand_index, split_at) != -1:
+                break
 
-        if split_at < 0:
-            # This should not happen if byte_length is reasonable,
-            # but guards against edge cases.
-            raise ValueError(
-                "Maximum byte length is too small or "
-                "invalid text structure near '&' or invalid UTF-8"
-            )
+            split_at = ampersand_index - 1
+            if split_at < 0:
+                raise ValueError("Maximum byte length is too small or invalid text")
+            if split_at == 0:
+                break
 
-        # Yield the chunk
-        chunk = text[:split_at].strip()
-        if chunk:
-            yield chunk
+        # Append the string to the list
+        new_text = text[:split_at].strip()
+        if new_text:
+            yield new_text
+        if split_at == 0:
+            split_at = 1
+        text = text[split_at:]
 
-        # Prepare for the next iteration
-        # If split_at became 0 after adjustment, advance by 1 to avoid infinite loop
-        text = text[split_at if split_at > 0 else 1 :]
-
-    # Yield the remaining part
-    remaining_chunk = text.strip()
-    if remaining_chunk:
-        yield remaining_chunk
+    new_text = text.strip()
+    if new_text:
+        yield new_text
 
 
 def mkssml(tc: TTSConfig, escaped_text: Union[str, bytes]) -> str:
@@ -309,12 +212,31 @@ def ssml_headers_plus_data(request_id: str, timestamp: str, ssml: str) -> str:
     )
 
 
+def calc_max_mesg_size(tts_config: TTSConfig) -> int:
+    """Calculates the maximum message size for the given voice, rate, and volume.
+
+    Returns:
+        int: The maximum message size.
+    """
+    websocket_max_size: int = 2**16
+    overhead_per_message: int = (
+        len(
+            ssml_headers_plus_data(
+                connect_id(),
+                date_to_string(),
+                mkssml(tts_config, ""),
+            )
+        )
+        + 50  # margin of error
+    )
+    return websocket_max_size - overhead_per_message
+
+
 class Communicate:
     """
     Communicate with the service.
     """
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         text: str,
@@ -323,14 +245,13 @@ class Communicate:
         rate: str = "+0%",
         volume: str = "+0%",
         pitch: str = "+0Hz",
-        boundary: Literal["WordBoundary", "SentenceBoundary"] = "SentenceBoundary",
         connector: Optional[aiohttp.BaseConnector] = None,
         proxy: Optional[str] = None,
         connect_timeout: Optional[int] = 10,
         receive_timeout: Optional[int] = 60,
     ):
         # Validate TTS settings and store the TTSConfig object.
-        self.tts_config = TTSConfig(voice, rate, volume, pitch, boundary)
+        self.tts_config = TTSConfig(voice, rate, volume, pitch)
 
         # Validate the text parameter.
         if not isinstance(text, str):
@@ -339,7 +260,7 @@ class Communicate:
         # Split the text into multiple strings and store them.
         self.texts = split_text_by_byte_length(
             escape(remove_incompatible_characters(text)),
-            4096,
+            calc_max_mesg_size(self.tts_config),
         )
 
         # Validate the proxy parameter.
@@ -375,7 +296,7 @@ class Communicate:
     def __parse_metadata(self, data: bytes) -> TTSChunk:
         for meta_obj in json.loads(data)["Metadata"]:
             meta_type = meta_obj["Type"]
-            if meta_type in ("WordBoundary", "SentenceBoundary"):
+            if meta_type == "WordBoundary":
                 current_offset = (
                     meta_obj["Data"]["Offset"] + self.state["offset_compensation"]
                 )
@@ -384,7 +305,7 @@ class Communicate:
                     "type": meta_type,
                     "offset": current_offset,
                     "duration": current_duration,
-                    "text": unescape(meta_obj["Data"]["text"]["Text"]),
+                    "text": meta_obj["Data"]["text"]["Text"],
                 }
             if meta_type in ("SessionEnd",):
                 continue
@@ -394,16 +315,12 @@ class Communicate:
     async def __stream(self) -> AsyncGenerator[TTSChunk, None]:
         async def send_command_request() -> None:
             """Sends the command request to the service."""
-            word_boundary = self.tts_config.boundary == "WordBoundary"
-            wd = "true" if word_boundary else "false"
-            sq = "true" if not word_boundary else "false"
             await websocket.send_str(
                 f"X-Timestamp:{date_to_string()}\r\n"
                 "Content-Type:application/json; charset=utf-8\r\n"
                 "Path:speech.config\r\n\r\n"
                 '{"context":{"synthesis":{"audio":{"metadataoptions":{'
-                f'"sentenceBoundaryEnabled":"{sq}","wordBoundaryEnabled":"{wd}"'
-                "},"
+                '"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},'
                 '"outputFormat":"audio-24khz-48kbitrate-mono-mp3"'
                 "}}}}\r\n"
             )
@@ -433,9 +350,9 @@ class Communicate:
             trust_env=True,
             timeout=self.session_timeout,
         ) as session, session.ws_connect(
-            f"{WSS_URL}&ConnectionId={connect_id()}"
-            f"&Sec-MS-GEC={DRM.generate_sec_ms_gec()}"
-            f"&Sec-MS-GEC-Version={SEC_MS_GEC_VERSION}",
+            f"{WSS_URL}&Sec-MS-GEC={DRM.generate_sec_ms_gec()}"
+            f"&Sec-MS-GEC-Version={SEC_MS_GEC_VERSION}"
+            f"&ConnectionId={connect_id()}",
             compress=15,
             proxy=self.proxy,
             headers=WSS_HEADERS,
@@ -590,9 +507,9 @@ class Communicate:
             async for message in self.stream():
                 if message["type"] == "audio":
                     audio.write(message["data"])
-                elif isinstance(metadata, TextIOWrapper) and message["type"] in (
-                    "WordBoundary",
-                    "SentenceBoundary",
+                elif (
+                    isinstance(metadata, TextIOWrapper)
+                    and message["type"] == "WordBoundary"
                 ):
                     json.dump(message, metadata)
                     metadata.write("\n")

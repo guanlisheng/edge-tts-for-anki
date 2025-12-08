@@ -97,50 +97,73 @@ def get_config():
 
 def detect_language(text):
     """
-    检测文本的主要语言，返回语言代码（如 'zh', 'en', 'fr'）
-    实现优雅降级：langdetect -> 语系检测 -> 字符检测 -> 默认
+    提升 langdetect 的准确率，特别是中/日/韩。
+    优雅降级：langdetect -> 语系检测 -> 字符检测 -> 默认
     """
-    # 清理文本：去除HTML标签和数字/符号，保留纯文本进行检测
-    clean_text = re.sub(r'<[^>]+>', '', text)
+    # 清理文本：去除HTML标签和符号
+    clean = re.sub(r'<[^>]+>', '', text)
+    clean = re.sub(r'[0-9\W_]+', ' ', clean).strip()
 
-    if not clean_text or len(clean_text) < 2:
-        return "en"  # 文本过短，返回默认
+    if not clean or len(clean) < 2:
+        return "en"
 
-    # 第1级：使用 langdetect 进行多语言检测
+    # ---- ① CJK 预检测（最可靠）----
+    has_hanzi = bool(re.search(r'[\u4e00-\u9fff]', text))
+    has_jp_kana = bool(re.search(r'[\u3040-\u30ff]', text))
+    has_hangul = bool(re.search(r'[\uAC00-\uD7A3]', text))
+
+    if has_hangul:
+        return "ko"
+    if has_jp_kana:
+        return "ja"
+    # 含中文汉字但无假名 → 99% 是中文
+    if has_hanzi and not has_jp_kana:
+        return "zh"
+
+    # ---- ② langdetect：带概率过滤 ----
     try:
-        # 设置种子确保确定性结果
         langdetect.DetectorFactory.seed = 0
-        lang_code = langdetect.detect(clean_text)
-        return lang_code[:2]  # 只取前两位（如 'zh'、'en'）
-    except (LangDetectException, Exception):
+        langs = detect_langs(clean)  # 返回: ['en:0.98', 'fr:0.02']
+
+        best = langs[0]
+        lang = best.lang
+        prob = best.prob
+
+        # 对 CJK：如果 langdetect 不确定（低于阈值），不用它
+        if lang in ("zh-cn", "zh-tw", "ja", "ko") and prob < 0.85:
+            pass
+        else:
+            # 正常语言（英文/印欧语系）用 langdetect 结果
+            if prob >= 0.70:  # 防止置信度过低
+                return lang[:2]
+
+    except LangDetectException:
         pass
 
-    # 第2级：语系特征检测（当 langdetect 不可用时）
-    # 中日韩统一表意文字
-    if re.search(r'[\u4e00-\u9fff\u3400-\u4dbf\U00020000-\U0002a6df]', text):
-        return "zh"
-    # 日文假名
-    elif re.search(r'[\u3040-\u309F\u30A0-\u30FF]', text):
+    # ---- ③ 再次执行 CJK 的降级判断 ----
+    if has_jp_kana:
         return "ja"
-    # 韩文字母
-    elif re.search(r'[\uAC00-\uD7A3]', text):
+    if has_hangul:
         return "ko"
-    # 西里尔字母（俄语等）
-    elif re.search(r'[\u0400-\u04FF]', text):
+    if has_hanzi:
+        # 如果有假名 → 日文；否则中文
+        if has_jp_kana:
+            return "ja"
+        return "zh"
+
+    # ---- ④ 西里尔、阿拉伯等语系检测 ----
+    if re.search(r'[\u0400-\u04FF]', text):
         return "ru"
-    # 阿拉伯字母
-    elif re.search(r'[\u0600-\u06FF]', text):
+    if re.search(r'[\u0600-\u06FF]', text):
         return "ar"
-    # 天城文（印地语等）
-    elif re.search(r'[\u0900-\u097F]', text):
+    if re.search(r'[\u0900-\u097F]', text):
         return "hi"
 
-    # 第3级：基础拉丁字母检测
-    # 如果包含拉丁字母，优先认为是英文
+    # ---- ⑤ 基础拉丁字母：认为是英文 ----
     if re.search(r'[a-zA-Z]', text):
         return "en"
 
-    # 第4级：完全无法识别，返回配置的默认语言
+    # ---- ⑥ 完全无法识别
     return "en"
 
 async def generate_speech_async(text, voice, rate, volume, output_filename):
