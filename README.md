@@ -54,7 +54,7 @@
   "volume": "+0%",
   "cache_enabled": true
 }
-
+```
 
 - `voice_mapping`: (关键配置): 一个字典，用于将语言代码映射到具体的 Edge TTS 语音名称。插件会自动根据检测到的语言代码选择右侧对应的发音人。
 - `default_voice`: 当文本语言未在 voice_mapping 中定义时，将使用的备用语音。
