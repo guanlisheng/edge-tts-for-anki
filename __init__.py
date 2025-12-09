@@ -97,61 +97,72 @@ def get_config():
 
 def detect_language(text):
     """
-    提升 langdetect 的准确率，特别是中/日/韩。
-    优雅降级：langdetect -> 语系检测 -> 字符检测 -> 默认
+    更稳健的语言检测：
+    - CJK（中/日/韩）优先检测（独立于 langdetect）
+    - langdetect 仅作为辅助，并增加概率阈值/短文本特殊规则
+    - 修复英文单词被判成法语的问题（如：beautiful -> fr）
     """
-    # 清理文本：去除HTML标签和符号
+
+    # -------------------------------
+    # 预处理
+    # -------------------------------
     clean = re.sub(r'<[^>]+>', '', text)
     clean = re.sub(r'[0-9\W_]+', ' ', clean).strip()
 
-    if not clean or len(clean) < 2:
+    if not clean:
         return "en"
 
-    # ---- ① CJK 预检测（最可靠）----
+    text_len = len(clean)
+
+    # -------------------------------
+    # ① CJK 绝对优先（不走 langdetect）
+    # -------------------------------
     has_hanzi = bool(re.search(r'[\u4e00-\u9fff]', text))
-    has_jp_kana = bool(re.search(r'[\u3040-\u30ff]', text))
+    has_kana  = bool(re.search(r'[\u3040-\u30ff]', text))
     has_hangul = bool(re.search(r'[\uAC00-\uD7A3]', text))
 
     if has_hangul:
         return "ko"
-    if has_jp_kana:
+    if has_kana:
         return "ja"
-    # 含中文汉字但无假名 → 99% 是中文
-    if has_hanzi and not has_jp_kana:
+    if has_hanzi:
         return "zh"
 
-    # ---- ② langdetect：带概率过滤 ----
+    # -------------------------------
+    # ② 极短文本处理（langdetect 对短词极不可靠）
+    # -------------------------------
+    # 单个英文单词 → 100% 视为英文
+    if text_len <= 8 and re.fullmatch(r"[A-Za-z]+", clean):
+        return "en"
+
+    # -------------------------------
+    # ③ langdetect 主检测（非 CJK）
+    # -------------------------------
     try:
         langdetect.DetectorFactory.seed = 0
-        langs = detect_langs(clean)  # 返回: ['en:0.98', 'fr:0.02']
-
+        langs = langdetect.detect_langs(clean)
         best = langs[0]
-        lang = best.lang
-        prob = best.prob
+        lang, prob = best.lang, best.prob
 
-        # 对 CJK：如果 langdetect 不确定（低于阈值），不用它
-        if lang in ("zh-cn", "zh-tw", "ja", "ko") and prob < 0.85:
-            pass
-        else:
-            # 正常语言（英文/印欧语系）用 langdetect 结果
-            if prob >= 0.70:  # 防止置信度过低
-                return lang[:2]
+        # langdetect 常把英文短词判为法语/罗马尼亚语，需要修正
+        if lang in ("fr", "ro", "it", "id", "pt", "es") and text_len <= 12:
+            # 如果是纯英文字符，则认为是英文
+            if re.fullmatch(r"[A-Za-z]+", clean):
+                return "en"
+
+        # 置信度 < 0.75 → 不采用 langdetect，使用降级规则
+        if prob < 0.75:
+            raise LangDetectException("Low probability")
+
+        # 正常情况下返回 langdetect 结果
+        return lang[:2]
 
     except LangDetectException:
         pass
 
-    # ---- ③ 再次执行 CJK 的降级判断 ----
-    if has_jp_kana:
-        return "ja"
-    if has_hangul:
-        return "ko"
-    if has_hanzi:
-        # 如果有假名 → 日文；否则中文
-        if has_jp_kana:
-            return "ja"
-        return "zh"
-
-    # ---- ④ 西里尔、阿拉伯等语系检测 ----
+    # -------------------------------
+    # ④ 降级字符系判断
+    # -------------------------------
     if re.search(r'[\u0400-\u04FF]', text):
         return "ru"
     if re.search(r'[\u0600-\u06FF]', text):
@@ -159,11 +170,12 @@ def detect_language(text):
     if re.search(r'[\u0900-\u097F]', text):
         return "hi"
 
-    # ---- ⑤ 基础拉丁字母：认为是英文 ----
-    if re.search(r'[a-zA-Z]', text):
+    # -------------------------------
+    # ⑤ 默认拉丁字母 → 英文
+    # -------------------------------
+    if re.search(r"[A-Za-z]", text):
         return "en"
 
-    # ---- ⑥ 完全无法识别
     return "en"
 
 async def generate_speech_async(text, voice, rate, volume, output_filename):
