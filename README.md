@@ -27,7 +27,7 @@
 4.  重启 Anki 完成安装。
 
 ### 方法二：手动安装文件
-1.  从[github发布页面](https://github.com/guanlisheng/edge-tts-for-anki/releases/)下载最新的 `.ankiaddon` 文件。
+1.  从[ET4A发布页面](https://github.com/guanlisheng/edge-tts-for-anki/releases/)下载最新的 `.ankiaddon` 文件。
 2.  在 Anki 中，打开 **工具 → 插件**。
 3.  点击 **从文件安装... (Install from file...)**，选择下载的 `.ankiaddon` 文件。
 4.  重启 Anki。
