@@ -79,6 +79,7 @@ pip install --target=vendor -r requirements.txt
 ```
 
 - 然后重新打包成 .ankiaddon 即可。
+
 ```bash
 zip -r ../edge-tts-for-anki.ankiaddon *
 ```
