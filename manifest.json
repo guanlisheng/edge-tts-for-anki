@@ -3,11 +3,11 @@
   "name": "Edge TTS",
   "mod": 1683456000,
   "author": "关公",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "min_point_version": 50,
   "max_point_version": 99,
   "description": "为 Anki 编辑器添加微软 Edge TTS 语音功能",
   "license": "MIT",
-  "support_url": "https://github.com/guanlisheng/edge-tts-for-anki",
+  "support_url": "https://anki.guanlisheng.com/",
   "homepage": "https://guanlisheng.com/"
 }
