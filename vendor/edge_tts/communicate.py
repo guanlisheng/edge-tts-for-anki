@@ -97,7 +97,7 @@ def connect_id() -> str:
     Returns:
         str: A UUID without dashes.
     """
-    return str(uuid.uuid4()).replace("-", "")
+    return uuid.uuid4().hex
 
 
 def _find_last_newline_or_space_within_limit(text: bytes, limit: int) -> int:
@@ -433,12 +433,12 @@ class Communicate:
             trust_env=True,
             timeout=self.session_timeout,
         ) as session, session.ws_connect(
-            f"{WSS_URL}&Sec-MS-GEC={DRM.generate_sec_ms_gec()}"
-            f"&Sec-MS-GEC-Version={SEC_MS_GEC_VERSION}"
-            f"&ConnectionId={connect_id()}",
+            f"{WSS_URL}&ConnectionId={connect_id()}"
+            f"&Sec-MS-GEC={DRM.generate_sec_ms_gec()}"
+            f"&Sec-MS-GEC-Version={SEC_MS_GEC_VERSION}",
             compress=15,
             proxy=self.proxy,
-            headers=WSS_HEADERS,
+            headers=DRM.headers_with_muid(WSS_HEADERS),
             ssl=ssl_ctx,
         ) as websocket:
             await send_command_request()
@@ -506,9 +506,9 @@ class Communicate:
 
                     # At termination of the stream, the service sends a binary message
                     # with no Content-Type; this is expected. What is not expected is for
-                    # an MPEG audio stream to be sent with no data.
+                    # an audio stream to be sent with no data.
                     content_type = parameters.get(b"Content-Type", None)
-                    if content_type not in [b"audio/mpeg", None]:
+                    if content_type not in (b"audio/mpeg", None):
                         raise UnexpectedResponse(
                             "Received binary message, but with an unexpected Content-Type."
                         )
