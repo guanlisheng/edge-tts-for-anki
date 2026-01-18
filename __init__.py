@@ -192,12 +192,20 @@ def generate_speech(text):
     """生成语音并返回音频文件名"""
     config = get_config()
 
-
-    # 检测语言
-    lang_code = detect_language(text)
+    # Match language code in deck name first for reliability
+    lang_code = ""
+    deck_name_words = set(mw.col.decks.current()['name'].strip().split())
+    voice_mapping = config.get("voice_mapping", {})
+    voice_keys = set(voice_mapping.keys())
+    if voice_keys.isdisjoint(deck_name_words):
+        # 检测语言if no match found in deck name
+        lang_code = detect_language(text)
+        print("Selected", lang_code, "by inference")
+    else:
+        lang_code = list(voice_keys.intersection(deck_name_words))[0]
+        print("Selected", lang_code, "by deck name")
 
     # 从映射表获取语音，若未配置则使用默认
-    voice_mapping = config.get("voice_mapping", {})
     voice = voice_mapping.get(lang_code, config.get("default_voice", "en-US-AriaNeural"))
     
     # 检查缓存
