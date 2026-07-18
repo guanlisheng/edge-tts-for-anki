@@ -83,7 +83,7 @@ def load_config():
     except Exception as e:
         print(f"配置加载失败，使用默认值: {e}")
     
-    return DEFAULT_CONFIG.copy
+    return DEFAULT_CONFIG.copy()
 
 CONFIG = load_config()
 
@@ -152,7 +152,7 @@ def detect_language(text):
 
         # 置信度 < 0.75 → 不采用 langdetect，使用降级规则
         if prob < 0.75:
-            raise LangDetectException("Low probability")
+            raise LangDetectException(-1, "Low probability")
 
         # 正常情况下返回 langdetect 结果
         return lang[:2]
