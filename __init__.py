@@ -131,8 +131,14 @@ def detect_language(text):
     # -------------------------------
     # ② 极短文本处理（langdetect 对短词极不可靠）
     # -------------------------------
-    # 单个英文单词 → 100% 视为英文
-    if text_len <= 8 and re.fullmatch(r"[A-Za-z]+", clean):
+    # 极短拉丁文本：语言识别器不可靠。
+    # 例如 raw beef 常被误判为 cy（威尔士语）。
+    # 对英语学习卡，短单词/短词组优先按英语朗读。
+    is_ascii_latin_phrase = bool(
+        re.fullmatch(r"[A-Za-z]+(?:[ '\-][A-Za-z]+)*", clean)
+    )
+
+    if is_ascii_latin_phrase and text_len <= 24:
         return "en"
 
     # -------------------------------
