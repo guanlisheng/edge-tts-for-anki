@@ -10,7 +10,7 @@ DEFAULT_VOICE = "en-US-EmmaMultilingualNeural"
 
 CHROMIUM_FULL_VERSION = "143.0.3650.75"
 CHROMIUM_MAJOR_VERSION = CHROMIUM_FULL_VERSION.split(".", maxsplit=1)[0]
-SEC_MS_GEC_VERSION = f"1-{CHROMIUM_FULL_VERSION}"
+SEC_MS_GEC_VERSION = f"2-{CHROMIUM_FULL_VERSION}"
 BASE_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     f" (KHTML, like Gecko) Chrome/{CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36"
@@ -36,3 +36,10 @@ VOICE_HEADERS = {
     "Sec-Fetch-Dest": "empty",
 }
 VOICE_HEADERS.update(BASE_HEADERS)
+
+# Audio timing constants for CBR-based offset compensation.
+# The output format "audio-24khz-48kbitrate-mono-mp3" is a 48 kbps constant
+# bitrate stream.  Microsoft's offset/duration metadata uses 100-nanosecond
+# ticks, so 1 second = 10,000,000 ticks.
+TICKS_PER_SECOND = 10_000_000
+MP3_BITRATE_BPS = 48_000

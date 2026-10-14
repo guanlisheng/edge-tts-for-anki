@@ -4,11 +4,12 @@ import asyncio
 import random
 import sys
 from functools import partial
-from typing import Final, Optional, Set, Union
+from typing import Final, Optional, Set
 
 from ..base_protocol import BaseProtocol
 from ..client_exceptions import ClientConnectionResetError
 from ..compression_utils import ZLibBackend, ZLibCompressor
+from ..helpers import DEFAULT_CHUNK_SIZE
 from .helpers import (
     MASK_LEN,
     MSG_SIZE,
@@ -20,8 +21,6 @@ from .helpers import (
     websocket_mask,
 )
 from .models import WS_DEFLATE_TRAILING, WSMsgType
-
-DEFAULT_LIMIT: Final[int] = 2**16
 
 # WebSocket opcode boundary: opcodes 0-7 are data frames, 8-15 are control frames
 # Control frames (ping, pong, close) are never compressed
@@ -52,7 +51,7 @@ class WebSocketWriter:
         transport: asyncio.Transport,
         *,
         use_mask: bool = False,
-        limit: int = DEFAULT_LIMIT,
+        limit: int = DEFAULT_CHUNK_SIZE,
         random: random.Random = random.Random(),
         compress: int = 0,
         notakeover: bool = False,
@@ -72,7 +71,7 @@ class WebSocketWriter:
         self._background_tasks: Set[asyncio.Task[None]] = set()
 
     async def send_frame(
-        self, message: bytes, opcode: int, compress: Optional[int] = None
+        self, message: bytes, opcode: int, compress: int | None = None
     ) -> None:
         """Send a frame over the websocket with message as its payload."""
         if self._closing and not (opcode & WSMsgType.CLOSE):
@@ -159,9 +158,9 @@ class WebSocketWriter:
         # when aiohttp is acting as a client. Servers do not use a mask.
         if use_mask:
             mask = PACK_RANDBITS(self.get_random_bits())
-            message = bytearray(message)
-            websocket_mask(mask, message)
-            self.transport.write(header + mask + message)
+            message_arr = bytearray(message)
+            websocket_mask(mask, message_arr)
+            self.transport.write(header + mask + message_arr)
             self._output_size += MASK_LEN
         elif msg_length > MSG_SIZE:
             self.transport.write(header)
@@ -171,7 +170,7 @@ class WebSocketWriter:
 
         self._output_size += header_len + msg_length
 
-    def _get_compressor(self, compress: Optional[int]) -> ZLibCompressor:
+    def _get_compressor(self, compress: int | None) -> ZLibCompressor:
         """Get or create a compressor object for the given compression level."""
         if compress:
             # Do not set self._compress if compressing is for this frame
@@ -189,7 +188,7 @@ class WebSocketWriter:
         return self._compressobj
 
     def _send_compressed_frame_sync(
-        self, message: bytes, opcode: int, compress: Optional[int]
+        self, message: bytes, opcode: int, compress: int | None
     ) -> None:
         """
         Synchronous send for small compressed frames.
@@ -217,7 +216,7 @@ class WebSocketWriter:
         )
 
     async def _send_compressed_frame_async_locked(
-        self, message: bytes, opcode: int, compress: Optional[int]
+        self, message: bytes, opcode: int, compress: int | None
     ) -> None:
         """
         Async send for large compressed frames with lock.
@@ -250,7 +249,7 @@ class WebSocketWriter:
                 0x40,
             )
 
-    async def close(self, code: int = 1000, message: Union[bytes, str] = b"") -> None:
+    async def close(self, code: int = 1000, message: bytes | str = b"") -> None:
         """Close the websocket, sending the specified code and message."""
         if isinstance(message, str):
             message = message.encode("utf-8")
