@@ -300,7 +300,8 @@ def open_config_file():
 
 def reload_config():
     """重新加载配置"""
-    load_config()
+    global CONFIG
+    CONFIG = load_config()
     showInfo("Edge TTS 配置已重新加载 ✅")
 
 def about_plugin():
