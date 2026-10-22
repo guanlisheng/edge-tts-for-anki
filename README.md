@@ -1,52 +1,65 @@
-## 插件代码 / AnkiWeb ID
-[`2034321258`](https://ankiweb.net/shared/info/2034321258) 用户可以在 Anki 中 **工具 → 插件 → 获取插件** 输入该 ID 直接安装。
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NCCX43ML1Q"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
 
-## 功能 / Features
+  gtag('config', 'G-NCCX43ML1Q');
+</script>
 
-这是一个为 Anki 编辑器设计的语音生成插件，利用微软 Edge 的在线语音合成技术，快速为学习卡片生成高质量发音。
+# Edge TTS for Anki
 
-- **一键生成语音**：在编辑器界面点击按钮或使用快捷键 **Ctrl+T**，即可为当前字段文本生成语音并插入音频标签。
-- **智能多语言识别**：自动检测文本语言（支持中、英、日、韩、法、德、西、俄等数十种语言），并为不同语言匹配最合适的语音。
-- **高度可定制**：可自由配置任意语言对应的发音人、语速和音量。
-- **高效的缓存机制**：自动缓存已生成的音频文件，避免对相同内容重复请求，节省时间和流量。
+**为 Anki 制作语音卡片更简单。** 在笔记编辑器中一键将文本转换为自然语音，并自动插入音频标签。
 
-## 依赖库 / Dependencies
+[![AnkiWeb](https://img.shields.io/badge/AnkiWeb-2034321258-blue)](https://ankiweb.net/shared/info/2034321258)
+[![Release](https://img.shields.io/github/v/release/guanlisheng/edge-tts-for-anki)](https://github.com/guanlisheng/edge-tts-for-anki/releases)
 
-- [`edge-tts`](https://pypi.org/project/edge-tts/)：用于生成文本到语音（TTS）  
-- [`langdetect`](https://pypi.org/project/langdetect/)：用于检测文本到语音
-- 👆 已内置在插件中，无需手动安装
+[English](#english)
 
-## 安装方法 / Installation
+## 功能特点
 
-### 方法一：一键安装（推荐）
-1.  在 Anki 桌面版中，点击菜单 **工具 (Tools) → 插件 (Add-ons)**。
-2.  点击 **获取插件 (Get Add-ons...)**。
-3.  在弹出的窗口中输入插件代码 **`2034321258`**，然后点击 **确定 (OK)**。
-4.  重启 Anki 完成安装。
+- **快速生成语音**：点击编辑器工具栏中的 **Edge TTS**，或使用快捷键 **Ctrl+T**，为当前字段生成语音。
+- **自动识别语言**：检测文本语言，并根据语言选择对应的语音；也可自定义语言与语音的映射。
+- **灵活调整朗读效果**：自定义发音人、语速和音量。
+- **缓存已生成音频**：重复处理相同内容时复用缓存，减少等待和网络请求。
+- **依赖随插件提供**：`edge-tts` 等运行依赖已包含在插件包内，无需单独安装。
 
-### 方法二：手动安装文件
-1.  从[ET4A发布页面](https://github.com/guanlisheng/edge-tts-for-anki/releases/)下载最新的 `.ankiaddon` 文件。
-2.  在 Anki 中，打开 **工具 → 插件**。
-3.  点击 **从文件安装... (Install from file...)**，选择下载的 `.ankiaddon` 文件。
-4.  重启 Anki。
+语音由 Microsoft Edge 在线文本转语音服务生成，使用时需要网络连接。
 
-安装后，Anki 笔记编辑器的工具栏上会出现一个 **“Edge TTS”** 按钮。
+## 安装
 
-## 配置 / Configuration
+### 推荐：通过 AnkiWeb 安装
 
-可以在插件的 **配置界面** 中修改以下选项：
+1. 打开 Anki 桌面版，选择 **工具 → 插件 → 获取插件…**。
+2. 输入插件代码 **`2034321258`**，点击 **确定**。
+3. 重启 Anki。
 
-### 核心配置项
+### 从发布文件安装
+
+1. 前往 [GitHub Releases](https://github.com/guanlisheng/edge-tts-for-anki/releases)，下载最新的 `.ankiaddon` 文件。
+2. 在 Anki 中选择 **工具 → 插件 → 从文件安装…**，然后选中下载的文件。
+3. 重启 Anki。
+
+安装完成后，在添加或编辑笔记时，点击编辑器工具栏上的 **Edge TTS** 按钮，或按 **Ctrl+T** 即可生成语音。
+
+## 配置
+
+在 Anki 的 **工具 → 插件** 中选中 **Edge TTS**，打开配置，即可调整默认语音、语速、音量和缓存。配置示例：
 
 ```json
 {
   "voice_mapping": {
     "zh": "zh-CN-XiaoxiaoNeural",
     "en": "en-US-AriaNeural",
+    "fr": "fr-FR-DeniseNeural",
+    "de": "de-DE-ConradNeural",
     "ja": "ja-JP-NanamiNeural",
     "ko": "ko-KR-SunHiNeural",
-    "fr": "fr-FR-DeniseNeural",
-    "de": "de-DE-ConradNeural"
+    "es": "es-ES-ElviraNeural",
+    "ru": "ru-RU-DariyaNeural",
+    "ar": "ar-EG-SalmaNeural",
+    "hi": "hi-IN-SwaraNeural"
   },
   "default_voice": "en-US-AriaNeural",
   "speech_rate": "+0%",
@@ -55,29 +68,69 @@
 }
 ```
 
-- `voice_mapping`: (关键配置): 一个字典，用于将语言代码映射到具体的 Edge TTS 语音名称。插件会自动根据检测到的语言代码选择右侧对应的发音人。
-- `default_voice`: 当文本语言未在 voice_mapping 中定义时，将使用的备用语音。
-- `speech_rate`: 语速（如 `+0%`, `-10%`, `+20%`）  
-- `volume`: 音量（如 `+0%`, `+50%`）  
-- `cache_enabled`: 是否启用缓存，避免重复生成  
+| 配置项 | 说明 |
+| --- | --- |
+| `voice_mapping` | 语言代码到语音名称的对应关系，例如 `zh` 对应中文语音。 |
+| `default_voice` | 文本语言无法识别或没有对应映射时使用的语音。 |
+| `speech_rate` | 语速调整，例如 `-10%` 或 `+20%`；`+0%` 表示默认语速。 |
+| `volume` | 音量调整，例如 `-10%` 或 `+20%`；`+0%` 表示默认音量。 |
+| `cache_enabled` | 是否缓存已生成的音频，默认开启。 |
 
-## 开发 / Development
+语音名称需使用 Edge TTS 支持的 voice ID。可在 [edge-tts 项目文档](https://github.com/rany2/edge-tts)了解可用语音。
 
-- 开发和运行环境
+## 常见问题
 
-```
-Anki 25.02.6 (6381f184)  (ao)
-Python 3.9.18 Qt 6.6.2 PyQt 6.6.1
-```
+**点击按钮后没有生成音频怎么办？**
 
-- 如果需要调试插件，可以在本地克隆代码，并在 `vendor/` 目录中手动安装依赖：
+请先确认 Anki 可以联网，再尝试重新生成。如果问题仍然存在，请到[项目 Issues](https://github.com/guanlisheng/edge-tts-for-anki/issues)反馈，并附上 Anki 版本和错误信息。
+
+**快捷键是什么？**
+
+默认快捷键是 **Ctrl+T**。在 macOS 上也可尝试 **⌘+T**。
+
+## 开发
+
+插件使用 Anki 桌面版运行。开发和调试时，可在项目根目录安装依赖并打包：
 
 ```bash
 pip install --target=vendor -r requirements.txt
+zip -r ../edge-tts-for-anki.ankiaddon . -x '*.git*' -x '__pycache__/*'
 ```
 
-- 然后重新打包成 .ankiaddon 即可。
+## English
+
+**Create audio for your Anki cards in one click.** Edge TTS for Anki adds text-to-speech generation to the Anki note editor and inserts the resulting audio tag into the current field.
+
+### Features
+
+- Generate speech from the current field with the **Edge TTS** editor button or **Ctrl+T**.
+- Detect the text language and select a matching voice, with customizable voice mappings.
+- Adjust the voice, speech rate, and volume.
+- Cache generated audio to avoid repeating the same request.
+- Runtime dependencies are bundled; no separate installation is needed.
+
+Speech is generated through Microsoft Edge's online text-to-speech service, so an internet connection is required.
+
+### Install
+
+**From AnkiWeb:** In Anki, open **Tools → Add-ons → Get Add-ons…**, enter **`2034321258`**, and restart Anki.
+
+**From a release:** Download the latest `.ankiaddon` file from [GitHub Releases](https://github.com/guanlisheng/edge-tts-for-anki/releases), then use **Tools → Add-ons → Install from file…** and restart Anki.
+
+### Configure
+
+Open **Tools → Add-ons**, select **Edge TTS**, and choose **Config**. The settings include language-to-voice mappings, a fallback voice, speech rate, volume, and audio caching. See the Chinese section above for a complete example.
+
+### Development
 
 ```bash
-zip -r ../edge-tts-for-anki.ankiaddon *
+pip install --target=vendor -r requirements.txt
+zip -r ../edge-tts-for-anki.ankiaddon . -x '*.git*' -x '__pycache__/*'
 ```
+
+## Links
+
+- [Install from AnkiWeb](https://ankiweb.net/shared/info/2034321258)
+- [Releases](https://github.com/guanlisheng/edge-tts-for-anki/releases)
+- [Report an issue](https://github.com/guanlisheng/edge-tts-for-anki/issues)
+- [Project homepage](https://anki.guanlisheng.com/)
