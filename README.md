@@ -1,13 +1,3 @@
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-NCCX43ML1Q"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-NCCX43ML1Q');
-</script>
-
 # Edge TTS for Anki
 
 **为 Anki 制作语音卡片更简单。** 在笔记编辑器中一键将文本转换为自然语音，并自动插入音频标签。
